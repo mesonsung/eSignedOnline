@@ -17,7 +17,8 @@ const messages = {
       warning: '警告',
       info: '資訊',
       actions: '操作',
-      search: '搜尋'
+      search: '搜尋',
+      clear: '清除'
     },
     auth: {
       login: '登入',
@@ -109,8 +110,9 @@ const messages = {
       error: 'Error',
       warning: 'Warning',
       info: 'Info',
-      actions: 'Actions',
-      search: 'Search'
+        actions: 'Actions',
+        search: 'Search',
+        clear: 'Clear'
     },
     auth: {
       login: 'Login',
@@ -202,8 +204,9 @@ const messages = {
       error: 'Lỗi',
       warning: 'Cảnh báo',
       info: 'Thông tin',
-      actions: 'Hành động',
-      search: 'Tìm kiếm'
+        actions: 'Hành động',
+        search: 'Tìm kiếm',
+        clear: 'Xóa'
     },
     auth: {
       login: 'Đăng nhập',

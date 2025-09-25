@@ -85,12 +85,42 @@
                         rows="3"
                       ></v-textarea>
                       
+                      <!-- 簽名畫布 -->
+                      <div class="mt-4">
+                        <v-label class="text-subtitle-1 mb-2">{{ $t('document.signature') }}</v-label>
+                        <v-card variant="outlined" class="signature-card">
+                          <canvas
+                            ref="signatureCanvas"
+                            width="400"
+                            height="150"
+                            class="signature-canvas"
+                            @mousedown="startDrawing"
+                            @mousemove="draw"
+                            @mouseup="stopDrawing"
+                            @mouseleave="stopDrawing"
+                            @touchstart="startDrawing"
+                            @touchmove="draw"
+                            @touchend="stopDrawing"
+                          ></canvas>
+                          <v-card-actions>
+                            <v-btn
+                              color="error"
+                              variant="text"
+                              size="small"
+                              @click="clearSignature"
+                            >
+                              {{ $t('common.clear') }}
+                            </v-btn>
+                          </v-card-actions>
+                        </v-card>
+                      </div>
+                      
                       <div class="text-center mt-4">
                         <v-btn
                           color="primary"
                           size="large"
                           :loading="signing"
-                          :disabled="!signature.name || signing"
+                          :disabled="!signature.name || !hasSignature || signing"
                           @click="handleSign"
                           prepend-icon="mdi-file-sign"
                         >
@@ -115,7 +145,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
@@ -129,6 +159,13 @@ const { t } = useI18n()
 const document = ref(null)
 const loading = ref(false)
 const signing = ref(false)
+const signatureCanvas = ref(null)
+const hasSignature = ref(false)
+
+// 簽名畫布相關變量
+let isDrawing = false
+let lastX = 0
+let lastY = 0
 
 const signature = reactive({
   name: '',
@@ -156,18 +193,108 @@ const formatFileSize = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
+// 簽名畫布功能
+const initCanvas = () => {
+  if (signatureCanvas.value) {
+    const canvas = signatureCanvas.value
+    const ctx = canvas.getContext('2d')
+    
+    // 設置畫布樣式
+    ctx.strokeStyle = '#000000'
+    ctx.lineWidth = 2
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    
+    // 設置白色背景
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+  }
+}
+
+const startDrawing = (e) => {
+  isDrawing = true
+  const canvas = signatureCanvas.value
+  const rect = canvas.getBoundingClientRect()
+  
+  if (e.type === 'mousedown') {
+    lastX = e.clientX - rect.left
+    lastY = e.clientY - rect.top
+  } else if (e.type === 'touchstart') {
+    e.preventDefault()
+    const touch = e.touches[0]
+    lastX = touch.clientX - rect.left
+    lastY = touch.clientY - rect.top
+  }
+}
+
+const draw = (e) => {
+  if (!isDrawing) return
+  
+  const canvas = signatureCanvas.value
+  const ctx = canvas.getContext('2d')
+  const rect = canvas.getBoundingClientRect()
+  
+  let currentX, currentY
+  
+  if (e.type === 'mousemove') {
+    currentX = e.clientX - rect.left
+    currentY = e.clientY - rect.top
+  } else if (e.type === 'touchmove') {
+    e.preventDefault()
+    const touch = e.touches[0]
+    currentX = touch.clientX - rect.left
+    currentY = touch.clientY - rect.top
+  }
+  
+  ctx.beginPath()
+  ctx.moveTo(lastX, lastY)
+  ctx.lineTo(currentX, currentY)
+  ctx.stroke()
+  
+  lastX = currentX
+  lastY = currentY
+  
+  hasSignature.value = true
+}
+
+const stopDrawing = () => {
+  isDrawing = false
+}
+
+const clearSignature = () => {
+  if (signatureCanvas.value) {
+    const canvas = signatureCanvas.value
+    const ctx = canvas.getContext('2d')
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    hasSignature.value = false
+  }
+}
+
+const getSignatureImage = () => {
+  if (signatureCanvas.value) {
+    return signatureCanvas.value.toDataURL('image/png')
+  }
+  return null
+}
+
 const handleSign = async () => {
-  if (!signature.name) return
+  if (!signature.name || !hasSignature.value) return
   
   signing.value = true
   
   try {
+    // 獲取簽名圖像
+    const signatureImage = getSignatureImage()
+    
     // 創建簽名數據
     const signatureData = {
       name: signature.name,
       title: signature.title,
       reason: signature.reason,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      signature_image: signatureImage
     }
     
     await api.post(`/documents/${route.params.id}/sign`, {
@@ -183,7 +310,40 @@ const handleSign = async () => {
   }
 }
 
-onMounted(() => {
-  loadDocument()
+onMounted(async () => {
+  await loadDocument()
+  await nextTick()
+  initCanvas()
 })
 </script>
+
+<style scoped>
+.signature-card {
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  padding: 16px;
+  background-color: #fafafa;
+}
+
+.signature-canvas {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: crosshair;
+  background-color: white;
+  display: block;
+  margin: 0 auto;
+}
+
+.signature-canvas:hover {
+  border-color: #1976d2;
+}
+
+/* 響應式設計 */
+@media (max-width: 600px) {
+  .signature-canvas {
+    width: 100%;
+    max-width: 350px;
+    height: 120px;
+  }
+}
+</style>

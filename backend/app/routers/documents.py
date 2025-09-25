@@ -135,6 +135,48 @@ async def get_signed_documents(current_user = Depends(get_current_active_user)):
     
     return documents
 
+@router.get("/{document_id}")
+async def get_document(document_id: str, current_user = Depends(get_current_active_user)):
+    """獲取單個文件信息"""
+    db = await get_database()
+    
+    document = await db.documents.find_one({"_id": ObjectId(document_id)})
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="文件不存在"
+        )
+    
+    # 檢查權限
+    if current_user["role"] != "admin":
+        # 一般用戶只能查看可簽署文件或自己簽署的文件
+        if document["status"] == "uploaded":
+            # 可以查看可簽署文件
+            pass
+        elif document["status"] == "signed" and document.get("signed_by") == current_user["username"]:
+            # 可以查看自己簽署的文件
+            pass
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="無權限查看此文件"
+            )
+    
+    return {
+        "id": str(document["_id"]),
+        "filename": document["filename"],
+        "original_filename": document["original_filename"],
+        "file_path": document["file_path"],
+        "file_size": document["file_size"],
+        "status": document["status"],
+        "uploaded_by": document["uploaded_by"],
+        "signed_by": document.get("signed_by"),
+        "signed_filename": document.get("signed_filename"),
+        "signed_file_path": document.get("signed_file_path"),
+        "signature_data": document.get("signature_data"),
+        "created_at": document["created_at"],
+        "updated_at": document["updated_at"]
+    }
 
 @router.get("/{document_id}/preview")
 async def preview_document(document_id: str, token: str = None):
@@ -229,11 +271,30 @@ async def sign_document(
     # 確保目錄存在
     os.makedirs(settings.signed_doc_path, exist_ok=True)
     
-    # 複製原檔案到簽署目錄
-    shutil.copy2(document["file_path"], signed_file_path)
+    # 解析簽名數據
+    import json
+    signature_data = json.loads(request_data.get("signature_data", "{}"))
+    signature_image = signature_data.get("signature_image")
     
-    # 這裡可以添加 PDF 簽署邏輯
-    # 目前只是複製檔案，實際的 PDF 簽署功能需要額外的庫
+    if signature_image:
+        # 使用 PDF 工具添加簽名
+        from app.utils.pdf_utils import add_signature_to_pdf
+        
+        success = add_signature_to_pdf(
+            original_pdf_path=document["file_path"],
+            signature_image_data=signature_image,
+            signature_info=signature_data,
+            output_path=signed_file_path
+        )
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="PDF 簽名處理失敗"
+            )
+    else:
+        # 如果沒有簽名圖像，只複製文件
+        shutil.copy2(document["file_path"], signed_file_path)
     
     # 創建新的已簽署文件記錄
     signed_document_data = {
