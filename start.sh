@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# eSignedOnline 啟動腳本
+
+echo "正在啟動 eSignedOnline 系統..."
+
+# 檢查證書是否存在
+if [ ! -f "storage/backend/certs/cert.pem" ] || [ ! -f "storage/backend/certs/key.pem" ]; then
+    echo "證書不存在，正在生成..."
+    ./generate-certs.sh
+fi
+
+if [ ! -f "storage/frontend/certs/cert.pem" ] || [ ! -f "storage/frontend/certs/key.pem" ]; then
+    echo "前端證書不存在，正在生成..."
+    ./generate-certs.sh
+fi
+
+# 建立必要的目錄
+mkdir -p storage/backend/uploads/DocToSign
+mkdir -p storage/backend/uploads/SignedDoc
+
+# 啟動 Docker Compose
+echo "正在啟動 Docker 容器..."
+docker-compose up -d --build
+
+echo "系統啟動完成！"
+echo "前端: https://localhost:8443"
+echo "後端 API: https://localhost:8443/api/docs"
+echo ""
+echo "預設管理員帳號:"
+echo "用戶名: ADMIN"
+echo "密碼: 1qaz@WSX"
+echo "Email: ADMIN@esigned.local"

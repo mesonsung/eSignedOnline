@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:4.4
+    container_name: esigned_mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: esigned
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./storage/mongodb_data:/data/db
+      - ./mongo-init:/docker-entrypoint-initdb.d
+    networks:
+      - esigned_network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: esigned_backend
+    restart: unless-stopped
+    environment:
+      - MONGODB_URL=mongodb://admin:password123@mongodb:27017/esigned?authSource=admin
+      - SECRET_KEY=eSignedOnline-secret-key
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_USERNAME=meson.sung@gmail.com
+      - SMTP_PASSWORD=syswdyiswmvxpfqj
+    ports:
+      - "7443:7443"
+      - "7444:7444"
+    volumes:
+      #- ./storage/backend/app:/app/app
+      - ./storage/backend/uploads:/app/uploads
+      - ./storage/backend/certs:/app/certs
+    depends_on:
+      - mongodb
+    networks:
+      - esigned_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: esigned_frontend
+    restart: unless-stopped
+    ports:
+      - "8443:8443"
+    volumes:
+      - ./storage/frontend/certs:/etc/nginx/certs
+    depends_on:
+      - backend
+    networks:
+      - esigned_network
+
+#volumes:
+#  mongodb_data:
+
+networks:
+  esigned_network:
+    driver: bridge
