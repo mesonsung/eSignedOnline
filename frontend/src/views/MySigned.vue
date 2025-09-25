@@ -27,7 +27,7 @@
               </template>
               
               <template v-slot:item.fileSize="{ item }">
-                {{ formatFileSize(item.fileSize) }}
+                {{ formatFileSize(item.file_size) }}
               </template>
               
               <template v-slot:item.signDate="{ item }">

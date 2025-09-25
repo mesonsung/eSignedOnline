@@ -14,32 +14,10 @@
             </div>
             
             <div v-else-if="document">
-              <v-row>
-                <v-col cols="12" md="6">
+              <v-row class="mt-4">
+                <v-col cols="24">
                   <v-card variant="outlined">
-                    <v-card-title>{{ $t('document.documentInfo') }}</v-card-title>
-                    <v-card-text>
-                      <v-list>
-                        <v-list-item>
-                          <v-list-item-title>{{ $t('document.originalFilename') }}</v-list-item-title>
-                          <v-list-item-subtitle>{{ document.original_filename }}</v-list-item-subtitle>
-                        </v-list-item>
-                        <v-list-item>
-                          <v-list-item-title>{{ $t('document.fileSize') }}</v-list-item-title>
-                          <v-list-item-subtitle>{{ formatFileSize(document.file_size) }}</v-list-item-subtitle>
-                        </v-list-item>
-                        <v-list-item>
-                          <v-list-item-title>{{ $t('document.uploadedBy') }}</v-list-item-title>
-                          <v-list-item-subtitle>{{ document.uploaded_by }}</v-list-item-subtitle>
-                        </v-list-item>
-                      </v-list>
-                    </v-card-text>
-                  </v-card>
-                </v-col>
-                
-                <v-col cols="12" md="6">
-                  <v-card variant="outlined">
-                    <v-card-title>{{ $t('document.preview') }}</v-card-title>
+                    <v-card-title>{{ $t('document.preview') }} - {{ document.original_filename }}</v-card-title>
                     <v-card-text>
                       <iframe
                         :src="`/api/documents/${document.id}/preview?token=${authStore.token}`"
@@ -56,39 +34,13 @@
               </v-row>
               
               <v-row class="mt-4">
-                <v-col cols="12">
+                <v-col cols="24">
                   <v-card variant="outlined">
                     <v-card-title>{{ $t('document.signature') }}</v-card-title>
                     <v-card-text>
-                      <v-row>
-                        <v-col cols="12" md="6">
-                          <v-text-field
-                            v-model="signature.name"
-                            :label="$t('document.signatureName')"
-                            variant="outlined"
-                            required
-                          ></v-text-field>
-                        </v-col>
-                        <v-col cols="12" md="6">
-                          <v-text-field
-                            v-model="signature.title"
-                            :label="$t('document.signatureTitle')"
-                            variant="outlined"
-                          ></v-text-field>
-                        </v-col>
-                      </v-row>
-                      
-                      <v-textarea
-                        v-model="signature.reason"
-                        :label="$t('document.signatureReason')"
-                        variant="outlined"
-                        rows="3"
-                      ></v-textarea>
-                      
                       <!-- 簽名畫布 -->
                       <div class="mt-4">
-                        <v-label class="text-subtitle-1 mb-2">{{ $t('document.signature') }}</v-label>
-                        <v-card variant="outlined" class="signature-card">
+                       <v-card variant="outlined" class="signature-card">
                           <canvas
                             ref="signatureCanvas"
                             width="400"
@@ -120,7 +72,7 @@
                           color="primary"
                           size="large"
                           :loading="signing"
-                          :disabled="!signature.name || !hasSignature || signing"
+                          :disabled="!hasSignature || signing"
                           @click="handleSign"
                           prepend-icon="mdi-file-sign"
                         >
@@ -166,12 +118,6 @@ const hasSignature = ref(false)
 let isDrawing = false
 let lastX = 0
 let lastY = 0
-
-const signature = reactive({
-  name: '',
-  title: '',
-  reason: ''
-})
 
 const loadDocument = async () => {
   loading.value = true
@@ -280,7 +226,7 @@ const getSignatureImage = () => {
 }
 
 const handleSign = async () => {
-  if (!signature.name || !hasSignature.value) return
+  if (!hasSignature.value) return
   
   signing.value = true
   
@@ -290,9 +236,7 @@ const handleSign = async () => {
     
     // 創建簽名數據
     const signatureData = {
-      name: signature.name,
-      title: signature.title,
-      reason: signature.reason,
+      name: authStore.user?.username,
       timestamp: new Date().toISOString(),
       signature_image: signatureImage
     }
