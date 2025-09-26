@@ -25,15 +25,55 @@
                       {{ document.original_filename }}</v-card-title
                     >
                     <v-card-text>
-                      <iframe
-                        :src="`/api/documents/${document.id}/preview?token=${authStore.token}`"
-                        width="100%"
-                        height="400"
-                        frameborder="0"
-                        style="border: none"
-                        type="application/pdf"
-                        :title="$t('document.documentPreview')"
-                      ></iframe>
+                      <!-- 桌面版：使用 iframe 預覽 -->
+                      <div v-if="!isMobile" class="desktop-preview">
+                        <iframe
+                          :src="`/api/documents/${document.id}/preview?token=${authStore.token}`"
+                          width="100%"
+                          height="400"
+                          style="border: none"
+                          type="application/pdf"
+                          :title="$t('document.documentPreview')"
+                        ></iframe>
+                      </div>
+                      
+                      <!-- 行動版：使用 PDF.js 預覽 -->
+                      <div v-else class="mobile-preview">
+                        <div class="pdf-viewer">
+                          <iframe
+                            :src="`/api/documents/${document.id}/preview?token=${authStore.token}#toolbar=0&navpanes=0&scrollbar=0`"
+                            width="100%"
+                            height="500"
+                            style="border: none; border-radius: 8px;"
+                            type="application/pdf"
+                            :title="$t('document.documentPreview')"
+                          ></iframe>
+                        </div>
+                        
+                        <!-- 行動版備用選項 -->
+                        <div class="mobile-actions mt-4">
+                          <v-btn
+                            color="primary"
+                            variant="outlined"
+                            prepend-icon="mdi-download"
+                            @click="downloadDocument(document)"
+                            block
+                          >
+                            {{ $t('document.download') }}
+                          </v-btn>
+                          
+                          <v-btn
+                            color="secondary"
+                            variant="text"
+                            prepend-icon="mdi-open-in-new"
+                            @click="openInNewTab(document)"
+                            block
+                            class="mt-2"
+                          >
+                            {{ $t('document.openInNewTab') }}
+                          </v-btn>
+                        </div>
+                      </div>
                     </v-card-text>
                   </v-card>
                 </v-col>
@@ -100,7 +140,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, nextTick } from "vue";
+import { ref, reactive, onMounted, onUnmounted, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import { useI18n } from "vue-i18n";
@@ -116,6 +156,7 @@ const loading = ref(false);
 const signing = ref(false);
 const signatureCanvas = ref(null);
 const hasSignature = ref(false);
+const isMobile = ref(false);
 
 // 簽名畫布相關變量
 let isDrawing = false;
@@ -140,6 +181,41 @@ const formatFileSize = (bytes) => {
   const sizes = ["Bytes", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+};
+
+// 行動裝置檢測
+const checkMobile = () => {
+  isMobile.value = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
+// 下載文件
+const downloadDocument = async (doc) => {
+  if (doc) {
+    try {
+      const response = await api.get(`/documents/${doc.id}/download`, {
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', doc.original_filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading document:', error);
+    }
+  }
+};
+
+// 在新分頁中開啟
+const openInNewTab = (doc) => {
+  if (doc) {
+    const url = `/api/documents/${doc.id}/preview?token=${authStore.token}`;
+    window.open(url, '_blank');
+  }
 };
 
 // 簽名畫布功能
@@ -255,9 +331,15 @@ const handleSign = async () => {
 };
 
 onMounted(async () => {
+  checkMobile();
   await loadDocument();
   await nextTick();
   initCanvas();
+  window.addEventListener('resize', checkMobile);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkMobile);
 });
 </script>
 
@@ -289,5 +371,35 @@ onMounted(async () => {
     max-width: 600px;
     height: 200px;
   }
+}
+
+/* 行動裝置預覽樣式 */
+.mobile-preview {
+  text-align: center;
+}
+
+.mobile-preview .pdf-viewer {
+  margin-bottom: 16px;
+}
+
+.mobile-preview iframe {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mobile-actions .v-btn {
+  margin: 0;
+}
+
+/* 桌面版預覽樣式 */
+.desktop-preview iframe {
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 </style>
