@@ -384,9 +384,10 @@ async def sign_document(
     doc_exists = await db.documents.find_one({"signed_filename": signed_filename})
     if doc_exists:
         result = await db.documents.update_one({"_id": doc_exists["_id"]}, {"$set": signed_document_data})
+        new_document = await db.documents.find_one({"_id": result.upserted_id})
     else:
         result = await db.documents.insert_one(signed_document_data)
-    new_document = await db.documents.find_one({"_id": result.inserted_id})
+        new_document = await db.documents.find_one({"_id": result.inserted_id})
     
     return {
         "id": str(new_document["_id"]),
