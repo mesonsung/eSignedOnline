@@ -13,7 +13,8 @@
             </p>
             
             <v-row>
-              <v-col cols="12" md="4">
+              <!-- 管理員可以看到總文件數 -->
+              <v-col v-if="authStore.user?.role === 'admin'" cols="12" md="4">
                 <v-card color="primary" variant="tonal">
                   <v-card-text class="text-center">
                     <v-icon size="48" class="mb-2">mdi-file-document</v-icon>
@@ -23,22 +24,26 @@
                 </v-card>
               </v-col>
               
-              <v-col cols="12" md="4">
+              <v-col :cols="authStore.user?.role === 'admin' ? '12' : '6'" :md="authStore.user?.role === 'admin' ? '4' : '6'">
                 <v-card color="success" variant="tonal">
                   <v-card-text class="text-center">
                     <v-icon size="48" class="mb-2">mdi-check-circle</v-icon>
                     <div class="text-h4">{{ stats.signedDocuments }}</div>
-                    <div class="text-body-1">{{ $t('dashboard.signedDocuments') }}</div>
+                    <div class="text-body-1">
+                      {{ $t('dashboard.signedDocuments') }}
+                    </div>
                   </v-card-text>
                 </v-card>
               </v-col>
               
-              <v-col cols="12" md="4">
+              <v-col :cols="authStore.user?.role === 'admin' ? '12' : '6'" :md="authStore.user?.role === 'admin' ? '4' : '6'">
                 <v-card color="warning" variant="tonal">
                   <v-card-text class="text-center">
                     <v-icon size="48" class="mb-2">mdi-clock-outline</v-icon>
                     <div class="text-h4">{{ stats.availableDocuments }}</div>
-                    <div class="text-body-1">{{ $t('dashboard.availableDocuments') }}</div>
+                    <div class="text-body-1">
+                      {{ authStore.user?.role === 'admin' ? $t('dashboard.availableDocuments') : $t('dashboard.documentsToSign') }}
+                    </div>
                   </v-card-text>
                 </v-card>
               </v-col>
@@ -48,7 +53,8 @@
       </v-col>
     </v-row>
     
-    <v-row class="mt-4">
+    <!-- 只有管理員可以看到最近的活動 -->
+    <v-row v-if="authStore.user?.role === 'admin'" class="mt-4">
       <v-col cols="12">
         <v-card>
           <v-card-title class="text-h5">
@@ -101,22 +107,40 @@ const recentActivities = ref([])
 
 const loadStats = async () => {
   try {
-    const response = await api.get('/documents/')
-    const documents = response.data
+    // 獲取所有文件（用於總數和最近活動）
+    const allDocumentsResponse = await api.get('/documents/')
+    const allDocuments = allDocumentsResponse.data
     
-    stats.totalDocuments = documents.length
-    stats.signedDocuments = documents.filter(doc => doc.status === 'signed').length
-    stats.availableDocuments = documents.filter(doc => doc.status === 'uploaded').length
+    // 獲取可簽署文件（未簽署的文件）
+    const availableDocumentsResponse = await api.get('/documents/available')
+    const availableDocuments = availableDocumentsResponse.data
     
-    // 生成最近活動
-    recentActivities.value = documents.slice(0, 5).map(doc => ({
-      id: doc.id,
-      icon: doc.status === 'signed' ? 'mdi-check-circle' : 'mdi-file-document',
-      title: doc.original_filename,
-      subtitle: `${doc.status === 'signed' ? 'Signed by' : 'Uploaded by'} ${doc.uploaded_by}`,
-      status: doc.status,
-      color: doc.status === 'signed' ? 'success' : 'primary'
-    }))
+    // 設置統計數據
+    if (authStore.user?.role === 'admin') {
+      stats.totalDocuments = allDocuments.length
+      // 管理員看到所有已簽署文件
+      stats.signedDocuments = allDocuments.filter(doc => doc.status === 'signed').length
+    } else {
+      // 一般用戶看到所有已簽署文件（使用新的 API）
+      const allSignedDocumentsResponse = await api.get('/documents/all-signed')
+      const allSignedDocuments = allSignedDocumentsResponse.data
+      stats.signedDocuments = allSignedDocuments.length
+    }
+    
+    // 可簽署文件數量
+    stats.availableDocuments = availableDocuments.length
+    
+    // 生成最近活動 - 只有管理員需要
+    if (authStore.user?.role === 'admin') {
+      recentActivities.value = allDocuments.slice(0, 5).map(doc => ({
+        id: doc.id,
+        icon: doc.status === 'signed' ? 'mdi-check-circle' : 'mdi-file-document',
+        title: doc.original_filename,
+        subtitle: `${doc.status === 'signed' ? 'Signed by' : 'Uploaded by'} ${doc.uploaded_by}`,
+        status: doc.status,
+        color: doc.status === 'signed' ? 'success' : 'primary'
+      }))
+    }
   } catch (error) {
     console.error('Error loading stats:', error)
   }

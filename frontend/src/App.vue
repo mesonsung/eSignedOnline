@@ -177,6 +177,16 @@ onMounted(() => {
   if (savedLanguage && supportedLanguages.some(lang => lang.code === savedLanguage)) {
     locale.value = savedLanguage
   }
+  
+  // 監聽全域通知事件
+  window.addEventListener('show-snackbar', (event) => {
+    snackbar.value = {
+      show: true,
+      message: event.detail.message,
+      color: event.detail.color,
+      timeout: event.detail.timeout || 3000
+    }
+  })
 })
 </script>
 

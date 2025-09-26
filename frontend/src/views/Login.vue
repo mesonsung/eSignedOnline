@@ -46,7 +46,7 @@
           <v-divider class="my-6"></v-divider>
           
           <div class="text-center">
-            <p class="text-body-2 mb-2">{{ $t('auth.register') }}</p>
+            <p class="text-body-2 mb-2">{{ $t('auth.donotHaveAccount') }}</p>
             <v-btn
               variant="outlined"
               color="primary"
@@ -81,11 +81,11 @@ const showPassword = ref(false)
 const loading = ref(false)
 
 const usernameRules = [
-  v => !!v || t('auth.username') + ' is required'
+  v => !!v || t('auth.validation.usernameRequired')
 ]
 
 const passwordRules = [
-  v => !!v || t('auth.password') + ' is required'
+  v => !!v || t('auth.validation.passwordRequired')
 ]
 
 const handleLogin = async () => {

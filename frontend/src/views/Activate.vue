@@ -87,12 +87,12 @@ const formData = reactive({
 const loading = ref(false)
 
 const usernameRules = [
-  v => !!v || t('auth.username') + ' is required'
+  v => !!v || t('auth.validation.usernameRequired')
 ]
 
 const activationCodeRules = [
-  v => !!v || t('auth.activationCode') + ' is required',
-  v => (v && v.length === 8) || 'Activation code must be 8 characters'
+  v => !!v || t('auth.validation.activationCodeRequired'),
+  v => (v && v.length === 8) || t('auth.validation.activationCodeLength')
 ]
 
 const handleActivate = async () => {

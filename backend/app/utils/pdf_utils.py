@@ -10,7 +10,7 @@ import tempfile
 
 def add_signature_to_pdf(original_pdf_path: str, signature_image_data: str, signature_info: dict, output_path: str):
     """
-    將簽名添加到 PDF 文件中
+    將簽名以透明背景的方式合成到PDF文件的最後一頁
     
     Args:
         original_pdf_path: 原始 PDF 文件路徑
@@ -23,16 +23,19 @@ def add_signature_to_pdf(original_pdf_path: str, signature_image_data: str, sign
         reader = PdfReader(original_pdf_path)
         writer = PdfWriter()
         
-        # 獲取第一頁
-        first_page = reader.pages[0]
+        # 獲取最後一頁
+        last_page = reader.pages[-1]
         
-        # 創建臨時文件來繪製簽名
+        # 創建臨時文件來繪製透明簽名
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
         temp_file.close()
         
-        # 創建 PDF 畫布
-        c = canvas.Canvas(temp_file.name, pagesize=letter)
-        width, height = letter
+        # 獲取最後一頁的尺寸
+        page_width = float(last_page.mediabox.width)
+        page_height = float(last_page.mediabox.height)
+        
+        # 創建 PDF 畫布，使用與最後一頁相同的尺寸
+        c = canvas.Canvas(temp_file.name, pagesize=(page_width, page_height))
         
         # 解析簽名圖像數據
         if signature_image_data.startswith('data:image'):
@@ -43,25 +46,29 @@ def add_signature_to_pdf(original_pdf_path: str, signature_image_data: str, sign
         image_data = base64.b64decode(signature_image_data)
         image = Image.open(BytesIO(image_data))
         
+        # 確保圖像是 RGBA 模式以支持透明度
+        if image.mode != 'RGBA':
+            image = image.convert('RGBA')
+        
         # 調整圖像大小
         max_width = 200
         max_height = 80
         image.thumbnail((max_width, max_height), Image.Resampling.LANCZOS)
         
-        # 保存調整後的圖像到臨時文件
+        # 保存調整後的圖像到臨時文件（保持透明度）
         temp_image_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
         image.save(temp_image_file.name, 'PNG')
         temp_image_file.close()
         
-        # 在 PDF 上繪製簽名
         # 簽名位置：右下角
-        signature_x = width - 250
+        signature_x = page_width - 250
         signature_y = 100
         
-        # 繪製簽名圖像
-        c.drawImage(temp_image_file.name, signature_x, signature_y, width=200, height=80)
+        # 繪製簽名圖像（保持透明度）
+        c.drawImage(temp_image_file.name, signature_x, signature_y, width=200, height=80, mask='auto')
         
-        # 繪製簽名信息
+        # 繪製簽名信息（使用半透明文字）
+        c.setFillColorRGB(0, 0, 0, 0.8)  # 半透明黑色文字
         c.setFont("Helvetica", 10)
         c.drawString(signature_x, signature_y - 20, f"簽名者: {signature_info.get('name', '')}")
         
@@ -77,24 +84,21 @@ def add_signature_to_pdf(original_pdf_path: str, signature_image_data: str, sign
                 reason_text = reason_text[:30] + "..."
             c.drawString(signature_x, signature_y - 65, f"簽名原因: {reason_text}")
         
-        # 繪製簽名框
-        c.rect(signature_x - 5, signature_y - 75, 245, 85)
-        
         c.save()
         
         # 讀取簽名頁面
         signature_reader = PdfReader(temp_file.name)
         signature_page = signature_reader.pages[0]
         
-        # 將簽名頁面合併到原始頁面
-        first_page.merge_page(signature_page)
+        # 將簽名頁面合併到最後一頁（透明合成）
+        last_page.merge_page(signature_page)
         
         # 添加所有頁面到 writer
-        writer.add_page(first_page)
-        
-        # 添加其餘頁面
-        for page_num in range(1, len(reader.pages)):
+        for page_num in range(len(reader.pages) - 1):
             writer.add_page(reader.pages[page_num])
+        
+        # 添加已簽名的最後一頁
+        writer.add_page(last_page)
         
         # 寫入輸出文件
         with open(output_path, 'wb') as output_file:

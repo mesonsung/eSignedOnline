@@ -54,6 +54,10 @@
                 {{ formatFileSize(item.file_size) }}
               </template>
               
+              <template v-slot:item.created_at="{ item }">
+                {{ formatDate(item.created_at) }}
+              </template>
+              
               <template v-slot:item.actions="{ item }">
                 <v-btn
                   icon="mdi-eye"
@@ -63,6 +67,7 @@
                 ></v-btn>
                 
                 <v-btn
+                  v-if="authStore.user?.role === 'admin'"
                   icon="mdi-delete"
                   size="small"
                   color="error"
@@ -84,16 +89,58 @@
         </v-card-title>
         
         <v-card-text>
-          <iframe
-            v-if="previewDocumentData"
-            :src="`/api/documents/${previewDocumentData.id}/preview?token=${authStore.token}`"
-            width="100%"
-            height="600"
-            frameborder="0"
-            style="border: none;"
-            type="application/pdf"
-            title="PDF Preview"
-          ></iframe>
+          <!-- 桌面版：使用 iframe 預覽 -->
+          <div v-if="!isMobile" class="desktop-preview">
+            <iframe
+              v-if="previewDocumentData"
+              :src="`/api/documents/${previewDocumentData.id}/preview?token=${authStore.token}`"
+              width="100%"
+              height="600"
+              frameborder="0"
+              style="border: none;"
+              type="application/pdf"
+              :title="$t('document.documentPreview')"
+            ></iframe>
+          </div>
+          
+          <!-- 行動版：使用 PDF.js 預覽 -->
+          <div v-else class="mobile-preview">
+            <div v-if="previewDocumentData" class="pdf-viewer">
+              <iframe
+                :src="`/api/documents/${previewDocumentData.id}/preview?token=${authStore.token}#toolbar=0&navpanes=0&scrollbar=0`"
+                width="100%"
+                height="500"
+                frameborder="0"
+                style="border: none; border-radius: 8px;"
+                type="application/pdf"
+                :title="$t('document.documentPreview')"
+              ></iframe>
+            </div>
+            
+            <!-- 行動版備用選項 -->
+            <div class="mobile-actions mt-4">
+              <v-btn
+                color="primary"
+                variant="outlined"
+                prepend-icon="mdi-download"
+                @click="downloadDocument(previewDocumentData)"
+                block
+              >
+                {{ $t('document.download') }}
+              </v-btn>
+              
+              <v-btn
+                color="secondary"
+                variant="text"
+                prepend-icon="mdi-open-in-new"
+                @click="openInNewTab(previewDocumentData)"
+                block
+                class="mt-2"
+              >
+                {{ $t('document.openInNewTab') }}
+              </v-btn>
+            </div>
+          </div>
         </v-card-text>
       </v-card>
     </v-dialog>
@@ -101,7 +148,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
@@ -116,6 +163,22 @@ const loading = ref(false)
 const uploadedDocuments = ref([])
 const previewDialog = ref(false)
 const previewDocumentData = ref(null)
+
+// 行動裝置檢測
+const isMobile = ref(false)
+
+// 檢測是否為行動裝置
+const checkMobile = () => {
+  isMobile.value = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+}
+
+// 在新分頁中開啟文件
+const openInNewTab = (doc) => {
+  if (doc) {
+    const url = `/api/documents/${doc.id}/preview?token=${authStore.token}`
+    window.open(url, '_blank')
+  }
+}
 
 const headers = [
   { title: t('document.originalFilename'), key: 'original_filename', sortable: true },
@@ -176,15 +239,33 @@ const formatFileSize = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
-const previewDocument = (document) => {
-  previewDocumentData.value = document
+const formatDate = (dateString) => {
+  if (!dateString) return '-'
+  const tmep = dateString.split('.')[0]+'Z'
+  const d = new Date(tmep)
+  const options = {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone // Uses local time zone
+  };
+  const localDate = d.toLocaleString('zh-TW', options)
+  return localDate
+}
+
+const previewDocument = (doc) => {
+  previewDocumentData.value = doc
   previewDialog.value = true
 }
 
-const deleteDocument = async (document) => {
+const deleteDocument = async (doc) => {
   if (confirm(t('document.deleteConfirm'))) {
     try {
-      await api.delete(`/documents/${document.id}`)
+      await api.delete(`/documents/${doc.id}`)
       await loadUploadedDocuments()
     } catch (error) {
       console.error('Error deleting document:', error)
@@ -193,6 +274,58 @@ const deleteDocument = async (document) => {
 }
 
 onMounted(() => {
+  checkMobile()
   loadUploadedDocuments()
+  
+  // 監聽視窗大小變化
+  window.addEventListener('resize', checkMobile)
+})
+
+// 清理事件監聽器
+onUnmounted(() => {
+  window.removeEventListener('resize', checkMobile)
 })
 </script>
+
+<style scoped>
+.text-grey {
+  color: #9e9e9e;
+}
+
+/* 行動裝置預覽樣式 */
+.mobile-preview {
+  padding: 8px;
+}
+
+.pdf-viewer {
+  background: #f5f5f5;
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 16px;
+}
+
+.mobile-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.desktop-preview {
+  padding: 8px;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+  .mobile-preview {
+    padding: 4px;
+  }
+  
+  .pdf-viewer {
+    padding: 4px;
+  }
+  
+  .pdf-viewer iframe {
+    height: 400px !important;
+  }
+}
+</style>

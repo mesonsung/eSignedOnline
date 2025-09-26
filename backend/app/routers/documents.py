@@ -81,6 +81,33 @@ async def upload_document(
 
 @router.get("/", response_model=List[Document])
 async def get_documents(current_user = Depends(get_current_active_user)):
+    """獲取所有文件列表（包括已簽署和未簽署的文件）"""
+    db = await get_database()
+    
+    # 顯示所有文件
+    query = {}
+    
+    documents = []
+    async for doc in db.documents.find(query).sort("created_at", -1):
+        documents.append({
+            "id": str(doc["_id"]),
+            "filename": doc["filename"],
+            "original_filename": doc["original_filename"],
+            "file_path": doc["file_path"],
+            "file_size": doc["file_size"],
+            "status": doc["status"],
+            "uploaded_by": doc["uploaded_by"],
+            "signed_by": doc.get("signed_by"),
+            "signed_at": doc.get("signed_at"),
+            "signed_filename": doc.get("signed_filename"),
+            "created_at": doc["created_at"],
+            "updated_at": doc["updated_at"]
+        })
+    
+    return documents
+
+@router.get("/available", response_model=List[Document])
+async def get_available_documents(current_user = Depends(get_current_active_user)):
     """獲取可簽署文件列表（未簽署的文件）"""
     db = await get_database()
     
@@ -98,6 +125,7 @@ async def get_documents(current_user = Depends(get_current_active_user)):
             "status": doc["status"],
             "uploaded_by": doc["uploaded_by"],
             "signed_by": doc.get("signed_by"),
+            "signed_at": doc.get("signed_at"),
             "signed_filename": doc.get("signed_filename"),
             "created_at": doc["created_at"],
             "updated_at": doc["updated_at"]
@@ -127,8 +155,39 @@ async def get_signed_documents(current_user = Depends(get_current_active_user)):
             "status": doc["status"],
             "uploaded_by": doc["uploaded_by"],
             "signed_by": doc.get("signed_by"),
+            "signed_at": doc.get("signed_at"),
             "signed_filename": doc.get("signed_filename"),
             "signed_file_path": doc.get("signed_file_path"),
+            "signature_data": doc.get("signature_data"),
+            "created_at": doc["created_at"],
+            "updated_at": doc["updated_at"]
+        })
+    
+    return documents
+
+@router.get("/all-signed", response_model=List[Document])
+async def get_all_signed_documents(current_user = Depends(get_current_active_user)):
+    """獲取所有已簽署文件列表（管理員和一般用戶都可以看到所有已簽署文件）"""
+    db = await get_database()
+    
+    # 所有用戶都可以看到所有已簽署文件
+    query = {"status": "signed"}
+    
+    documents = []
+    async for doc in db.documents.find(query).sort("created_at", -1):
+        documents.append({
+            "id": str(doc["_id"]),
+            "filename": doc["filename"],
+            "original_filename": doc["original_filename"],
+            "file_path": doc["file_path"],
+            "file_size": doc["file_size"],
+            "status": doc["status"],
+            "uploaded_by": doc["uploaded_by"],
+            "signed_by": doc.get("signed_by"),
+            "signed_at": doc.get("signed_at"),
+            "signed_filename": doc.get("signed_filename"),
+            "signed_file_path": doc.get("signed_file_path"),
+            "signature_data": doc.get("signature_data"),
             "created_at": doc["created_at"],
             "updated_at": doc["updated_at"]
         })
@@ -227,7 +286,16 @@ async def preview_document(document_id: str, token: str = None):
                 detail="無權限預覽此文件"
             )
     
-    file_path = document["file_path"]
+    # 根據文件狀態選擇預覽文件
+    if document["status"] == "signed" and document.get("signed_file_path"):
+        # 已簽署文件，預覽已簽署的文件
+        file_path = document["signed_file_path"]
+        filename = document.get("signed_filename", document["original_filename"])
+    else:
+        # 未簽署文件，預覽原始文件
+        file_path = document["file_path"]
+        filename = document["original_filename"]
+    
     if not os.path.exists(file_path):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -237,7 +305,7 @@ async def preview_document(document_id: str, token: str = None):
     return FileResponse(
         file_path,
         media_type="application/pdf",
-        filename=document["original_filename"],
+        filename=filename,
         headers={"Content-Disposition": "inline"}  # 設置為 inline 以支持 iframe 預覽
     )
 
@@ -305,6 +373,7 @@ async def sign_document(
         "status": "signed",
         "uploaded_by": document["uploaded_by"],
         "signed_by": current_user["username"],
+        "signed_at": datetime.utcnow(),
         "signed_filename": signed_filename,
         "signed_file_path": signed_file_path,
         "signature_data": request_data.get("signature_data"),
@@ -342,7 +411,7 @@ async def download_signed_document(document_id: str, current_user = Depends(get_
         )
     
     # 檢查權限
-    if document["signed_by"] != current_user["username"] and current_user["role"] != "admin":
+    if (document.get("signed_by","") != current_user["username"] and current_user["role"] != "admin"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="無權限下載此文件"
@@ -369,8 +438,8 @@ async def download_signed_document(document_id: str, current_user = Depends(get_
     )
 
 @router.delete("/{document_id}")
-async def delete_document(document_id: str, current_user = Depends(get_admin_user)):
-    """刪除文件（僅管理員）"""
+async def delete_document(document_id: str, current_user = Depends(get_current_active_user)):
+    """刪除文件（管理員可刪除所有文件，一般用戶只能刪除自己簽署的文件）"""
     db = await get_database()
     
     document = await db.documents.find_one({"_id": ObjectId(document_id)})
@@ -380,14 +449,60 @@ async def delete_document(document_id: str, current_user = Depends(get_admin_use
             detail="文件不存在"
         )
     
-    # 刪除檔案
-    if os.path.exists(document["file_path"]):
-        os.remove(document["file_path"])
+    # 權限檢查：管理員可以刪除所有文件，一般用戶只能刪除自己簽署的文件
+    if current_user["role"] != "admin":
+        if not document.get("signed_by") or document["signed_by"] != current_user["username"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="您只能刪除自己簽署的文件"
+            )
     
-    if document.get("signed_file_path") and os.path.exists(document["signed_file_path"]):
-        os.remove(document["signed_file_path"])
-    
-    # 從資料庫刪除
-    await db.documents.delete_one({"_id": ObjectId(document_id)})
-    
-    return {"message": "文件已刪除"}
+    try:
+        if document["status"] == "signed":
+            # 已簽署文件：只刪除已簽署檔案，保留原始文件
+            if document.get("signed_file_path") and os.path.exists(document["signed_file_path"]):
+                os.remove(document["signed_file_path"])
+                logger.info(f"已刪除已簽署文件: {document['signed_file_path']}")
+            
+            result = await db.documents.delete_one({"_id": ObjectId(document_id)})
+            
+            if result.deleted_count > 0:
+                user_type = "管理員" if current_user["role"] == "admin" else "用戶"
+                logger.info(f"{user_type} {current_user['username']} 已刪除已簽署文件: {document['original_filename']} (ID: {document_id})，文件狀態已恢復為可簽署")
+                return {"message": "已簽署文件已刪除，文件恢復為可簽署狀態"}
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="更新文件狀態失敗"
+                )
+        else:
+            # 未簽署文件：刪除原始檔案和資料庫記錄
+            if os.path.exists(document["file_path"]):
+                os.remove(document["file_path"])
+                logger.info(f"已刪除原始文件: {document['file_path']}")
+            
+            # 從資料庫刪除記錄
+            result = await db.documents.delete_one({"_id": ObjectId(document_id)})
+            
+            if result.deleted_count > 0:
+                user_type = "管理員" if current_user["role"] == "admin" else "用戶"
+                logger.info(f"{user_type} {current_user['username']} 已刪除文件: {document['original_filename']} (ID: {document_id})")
+                return {"message": "文件已刪除"}
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="刪除文件記錄失敗"
+                )
+            
+    except OSError as e:
+        logger.error(f"刪除實體文件時發生錯誤: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="刪除實體文件失敗"
+        )
+    except Exception as e:
+        logger.error(f"刪除文件時發生未知錯誤: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="刪除文件失敗"
+        )

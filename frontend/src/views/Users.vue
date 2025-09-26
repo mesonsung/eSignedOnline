@@ -84,7 +84,7 @@ const headers = [
   { title: t('auth.fullName'), key: 'full_name', sortable: true },
   { title: t('user.role'), key: 'role', sortable: true },
   { title: t('user.active'), key: 'is_active', sortable: true },
-  { title: t('document.uploadDate'), key: 'created_at', sortable: true },
+  { title: t('user.createdAt'), key: 'created_at', sortable: true },
   { title: t('common.actions'), key: 'actions', sortable: false }
 ]
 
@@ -101,7 +101,21 @@ const loadUsers = async () => {
 }
 
 const formatDate = (dateString) => {
-  return new Date(dateString).toLocaleDateString()
+  if (!dateString) return '-'
+  const tmep = dateString.split('.')[0]+'Z'
+  const d = new Date(tmep)
+  const options = {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone // Uses local time zone
+  }
+  const localDate = d.toLocaleString('zh-TW', options)
+  return localDate
 }
 
 const deleteUser = async (user) => {

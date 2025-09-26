@@ -116,23 +116,23 @@ const showConfirmPassword = ref(false)
 const loading = ref(false)
 
 const usernameRules = [
-  v => !!v || t('auth.username') + ' is required',
-  v => (v && v.length >= 3) || 'Username must be at least 3 characters'
+  v => !!v || t('auth.validation.usernameRequired'),
+  v => (v && v.length >= 3) || t('auth.validation.usernameMinLength')
 ]
 
 const emailRules = [
-  v => !!v || t('auth.email') + ' is required',
-  v => /.+@.+\..+/.test(v) || 'Email must be valid'
+  v => !!v || t('auth.validation.emailRequired'),
+  v => /.+@.+\..+/.test(v) || t('auth.validation.emailInvalid')
 ]
 
 const passwordRules = [
-  v => !!v || t('auth.password') + ' is required',
-  v => (v && v.length >= 6) || 'Password must be at least 6 characters'
+  v => !!v || t('auth.validation.passwordRequired'),
+  v => (v && v.length >= 8) || t('auth.validation.passwordMinLength')
 ]
 
 const confirmPasswordRules = [
-  v => !!v || 'Please confirm your password',
-  v => v === formData.password || 'Passwords do not match'
+  v => !!v || t('auth.validation.confirmPasswordRequired'),
+  v => v === formData.password || t('auth.validation.passwordMismatch')
 ]
 
 const handleRegister = async () => {
