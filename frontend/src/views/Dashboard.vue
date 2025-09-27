@@ -136,7 +136,7 @@ const loadStats = async () => {
         id: doc.id,
         icon: doc.status === 'signed' ? 'mdi-check-circle' : 'mdi-file-document',
         title: doc.original_filename,
-        subtitle: `${doc.status === 'signed' ? 'Signed by' : 'Uploaded by'} ${doc.uploaded_by}`,
+        subtitle: `${doc.status === 'signed' ? 'Signed by ' + doc.signed_by : 'Uploaded by ' + doc.uploaded_by}`,
         status: doc.status,
         color: doc.status === 'signed' ? 'success' : 'primary'
       }))

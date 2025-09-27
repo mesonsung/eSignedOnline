@@ -2,10 +2,10 @@
   <v-container class="pa-6">
     <v-row justify="center">
       <v-col cols="12" md="8" lg="6">
-        <v-card elevation="4">
+        <v-card class="themed-card hover-lift">
           <v-card-title class="text-h5 pa-6">
-            <v-icon class="mr-3">mdi-account-circle</v-icon>
-            {{ $t('profile.title') }}
+            <v-icon class="mr-3" color="primary">mdi-account-circle</v-icon>
+            <span class="text-gradient">{{ $t('profile.title') }}</span>
           </v-card-title>
           
           <v-divider></v-divider>
