@@ -223,7 +223,7 @@ const loadUploadedDocuments = async () => {
   loading.value = true
   try {
     const response = await api.get('/documents/')
-    uploadedDocuments.value = response.data.filter(doc => doc.uploaded_by === authStore.user?.username)
+    uploadedDocuments.value = response.data.filter(doc => doc.uploaded_by === authStore.user?.username && doc.status === 'uploaded')
   } catch (error) {
     console.error('Error loading documents:', error)
   } finally {
