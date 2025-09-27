@@ -348,18 +348,61 @@ async def sign_document(
         # 使用 PDF 工具添加簽名
         from app.utils.pdf_utils import add_signature_to_pdf
         
-        success = add_signature_to_pdf(
-            original_pdf_path=document["file_path"],
-            signature_image_data=signature_image,
-            signature_info=signature_data,
-            output_path=signed_file_path
-        )
-        
-        if not success:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="PDF 簽名處理失敗"
+        try:
+            logger.info(f"Processing PDF signature for document {document_id}")
+            logger.info(f"Original filename: {document['original_filename']}")
+            
+            success = add_signature_to_pdf(
+                original_pdf_path=document["file_path"],
+                signature_image_data=signature_image,
+                signature_info=signature_data,
+                output_path=signed_file_path
             )
+            
+            if not success:
+                logger.error(f"PDF signature processing failed for document {document_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="PDF 簽名處理失敗"
+                )
+            
+            logger.info(f"PDF signature processing completed successfully for document {document_id}")
+            
+            # 檢查輸出文件是否存在
+            if not os.path.exists(signed_file_path):
+                logger.error(f"Signed PDF file was not created: {signed_file_path}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="簽名文件創建失敗"
+                )
+            
+            logger.info(f"Signed PDF file size: {os.path.getsize(signed_file_path)} bytes")
+            
+        except HTTPException:
+            # 重新拋出 HTTP 異常
+            raise
+        except Exception as e:
+            logger.error(f"PDF signature processing exception for document {document_id}: {str(e)}")
+            logger.error(f"Original PDF path: {document['file_path']}")
+            logger.error(f"Original file exists: {os.path.exists(document['file_path'])}")
+            logger.error(f"Output path: {signed_file_path}")
+            
+            # 如果是 PyPDF2 錯誤，提供更友好的錯誤信息
+            if "startxref not found" in str(e) or "PyPDF2" in str(e):
+                # 檢查是否成功創建了fallback文件
+                if os.path.exists(signed_file_path):
+                    logger.info(f"Enhanced fallback PDF was created successfully at: {signed_file_path}")
+                    # 不拋出異常，因為系統已成功創建了包含提取內容和簽名的PDF
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail="PDF 文件格式嚴重損壞，無法處理。請聯繫技術支持檢查原始文件。"
+                    )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"PDF 簽名處理錯誤: {str(e)}"
+                )
     else:
         # 如果沒有簽名圖像，只複製文件
         shutil.copy2(document["file_path"], signed_file_path)
