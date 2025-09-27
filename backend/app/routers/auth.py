@@ -6,7 +6,8 @@ from app.core.security import (
     verify_password, 
     get_password_hash, 
     create_access_token,
-    generate_activation_code
+    generate_activation_code,
+    get_current_active_user
 )
 from app.core.email import send_activation_email
 from app.core.config import settings
@@ -190,3 +191,171 @@ async def get_current_user_info(current_user = Depends(get_current_user)):
         "created_at": current_user["created_at"],
         "updated_at": current_user["updated_at"]
     }
+
+@router.post("/change-password", response_model=dict)
+async def change_password(
+    password_data: dict,
+    current_user = Depends(get_current_active_user)
+):
+    """修改密碼"""
+    try:
+        old_password = password_data.get("old_password")
+        new_password = password_data.get("new_password")
+        
+        if not old_password or not new_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="舊密碼和新密碼都是必需的"
+            )
+        
+        # 驗證舊密碼
+        if not verify_password(old_password, current_user["password"]):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="舊密碼錯誤"
+            )
+        
+        # 檢查新密碼長度
+        if len(new_password) < 6:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="新密碼至少需要6個字符"
+            )
+        
+        # 更新密碼
+        db = await get_database()
+        await db.users.update_one(
+            {"_id": current_user["_id"]},
+            {
+                "$set": {
+                    "password": get_password_hash(new_password),
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
+        
+        logger.info(f"用戶 {current_user['username']} 成功修改密碼")
+        return {"message": "密碼修改成功"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"修改密碼時發生錯誤: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="修改密碼時發生錯誤"
+        )
+
+@router.post("/forgot-password", response_model=dict)
+async def forgot_password(request_data: dict):
+    """忘記密碼 - 發送重設密碼郵件"""
+    try:
+        email = request_data.get("email")
+        
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="郵箱地址是必需的"
+            )
+        
+        db = await get_database()
+        user = await db.users.find_one({"email": email})
+        
+        if not user:
+            # 為了安全起見，即使郵箱不存在也返回成功訊息
+            return {"message": "如果該郵箱地址存在於系統中，重設密碼連結已發送"}
+        
+        # 生成重設密碼令牌
+        reset_token = generate_activation_code()
+        reset_expires = datetime.utcnow() + timedelta(hours=1)  # 1小時後過期
+        
+        # 更新用戶記錄
+        await db.users.update_one(
+            {"_id": user["_id"]},
+            {
+                "$set": {
+                    "reset_token": reset_token,
+                    "reset_token_expires": reset_expires,
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
+        
+        # 發送重設密碼郵件
+        from app.core.email import send_password_reset_email
+        email_sent = await send_password_reset_email(user["email"], reset_token)
+        
+        if email_sent:
+            logger.info(f"重設密碼郵件已發送到 {email}")
+        else:
+            logger.warning(f"重設密碼郵件發送失敗到 {email}, 重設令牌: {reset_token}")
+        
+        return {"message": "如果該郵箱地址存在於系統中，重設密碼連結已發送"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"處理忘記密碼請求時發生錯誤: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="處理請求時發生錯誤"
+        )
+
+@router.post("/reset-password", response_model=dict)
+async def reset_password(reset_data: dict):
+    """重設密碼"""
+    try:
+        token = reset_data.get("token")
+        new_password = reset_data.get("new_password")
+        
+        if not token or not new_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="重設令牌和新密碼都是必需的"
+            )
+        
+        # 檢查新密碼長度
+        if len(new_password) < 6:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="新密碼至少需要6個字符"
+            )
+        
+        db = await get_database()
+        user = await db.users.find_one({
+            "reset_token": token,
+            "reset_token_expires": {"$gt": datetime.utcnow()}
+        })
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="重設令牌無效或已過期"
+            )
+        
+        # 更新密碼並清除重設令牌
+        await db.users.update_one(
+            {"_id": user["_id"]},
+            {
+                "$set": {
+                    "password": get_password_hash(new_password),
+                    "updated_at": datetime.utcnow()
+                },
+                "$unset": {
+                    "reset_token": "",
+                    "reset_token_expires": ""
+                }
+            }
+        )
+        
+        logger.info(f"用戶 {user['username']} 成功重設密碼")
+        return {"message": "密碼重設成功"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"重設密碼時發生錯誤: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="重設密碼時發生錯誤"
+        )

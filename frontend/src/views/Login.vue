@@ -55,6 +55,17 @@
             </v-btn>
           </v-form>
           
+          <!-- 忘記密碼連結 -->
+          <div class="text-center mt-4">
+            <v-btn
+              variant="text"
+              color="primary"
+              @click="$router.push('/forgot-password')"
+            >
+              {{ $t('auth.forgotPassword') }}
+            </v-btn>
+          </div>
+          
           <v-divider class="my-6"></v-divider>
           
           <div class="text-center">

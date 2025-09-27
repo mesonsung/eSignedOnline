@@ -76,6 +76,33 @@ export const useAuthStore = defineStore('auth', () => {
     delete api.defaults.headers.common['Authorization']
   }
 
+  const changePassword = async (passwordData) => {
+    try {
+      const response = await api.post('/auth/change-password', passwordData)
+      return response.data
+    } catch (error) {
+      throw error
+    }
+  }
+
+  const forgotPassword = async (email) => {
+    try {
+      const response = await api.post('/auth/forgot-password', { email })
+      return response.data
+    } catch (error) {
+      throw error
+    }
+  }
+
+  const resetPassword = async (resetData) => {
+    try {
+      const response = await api.post('/auth/reset-password', resetData)
+      return response.data
+    } catch (error) {
+      throw error
+    }
+  }
+
   // 初始化時檢查 token
   if (token.value) {
     api.defaults.headers.common['Authorization'] = `Bearer ${token.value}`
@@ -92,6 +119,9 @@ export const useAuthStore = defineStore('auth', () => {
     register,
     activate,
     fetchUser,
-    logout
+    logout,
+    changePassword,
+    forgotPassword,
+    resetPassword
   }
 })

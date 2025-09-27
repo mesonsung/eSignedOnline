@@ -48,7 +48,7 @@
           </v-btn>
         </template>
         <v-list>
-          <v-list-item>
+          <v-list-item @click="$router.push('/profile')">
             <v-list-item-title>{{ $t('user.profile') }}</v-list-item-title>
           </v-list-item>
           <v-divider></v-divider>

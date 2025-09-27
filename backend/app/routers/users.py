@@ -82,7 +82,7 @@ async def update_my_profile(
     
     if user_update.password is not None:
         from app.core.security import get_password_hash
-        update_data["password_hash"] = get_password_hash(user_update.password)
+        update_data["password"] = get_password_hash(user_update.password)
     
     await db.users.update_one(
         {"_id": current_user["_id"]},
