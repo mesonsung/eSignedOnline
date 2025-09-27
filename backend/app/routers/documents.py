@@ -170,8 +170,11 @@ async def get_all_signed_documents(current_user = Depends(get_current_active_use
     """獲取所有已簽署文件列表（管理員和一般用戶都可以看到所有已簽署文件）"""
     db = await get_database()
     
-    # 所有用戶都可以看到所有已簽署文件
-    query = {"status": "signed"}
+    # 用戶只能看到自己簽過的檔, 管理者可以看到所有已簽署文件
+    if current_user["role"] == "admin":
+        query = {"status": "signed"}
+    else:
+        query = {"status": "signed", "signed_by": current_user["username"]}
     
     documents = []
     async for doc in db.documents.find(query).sort("created_at", -1):

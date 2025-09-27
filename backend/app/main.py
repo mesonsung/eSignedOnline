@@ -1,13 +1,19 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
 from contextlib import asynccontextmanager
 import uvicorn
 import os
+import logging
 from motor.motor_asyncio import AsyncIOMotorClient
 from app.database import get_database, connect_to_mongo
 from app.routers import auth, documents, users
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 # 全域變數
 database = None
@@ -48,6 +54,30 @@ app.add_middleware(
 
 # 安全設定
 security = HTTPBearer()
+
+# 異常處理器
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    logger.error(f"驗證錯誤在 {request.method} {request.url}: {exc.errors()}")
+    logger.error(f"請求體: {await request.body()}")
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": "請求資料驗證失敗",
+            "errors": exc.errors()
+        }
+    )
+
+@app.exception_handler(ValidationError)
+async def pydantic_validation_exception_handler(request: Request, exc: ValidationError):
+    logger.error(f"Pydantic 驗證錯誤在 {request.method} {request.url}: {exc.errors()}")
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": "資料驗證失敗",
+            "errors": exc.errors()
+        }
+    )
 
 # 包含路由
 app.include_router(auth.router, prefix="/api/auth", tags=["認證"])

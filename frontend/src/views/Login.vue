@@ -7,6 +7,18 @@
             {{ $t('auth.login') }}
           </v-card-title>
           
+          <!-- 錯誤訊息 -->
+          <v-alert
+            v-if="errorMessage"
+            type="error"
+            variant="tonal"
+            class="mb-4"
+            closable
+            @click:close="errorMessage = ''"
+          >
+            {{ errorMessage }}
+          </v-alert>
+          
           <v-form @submit.prevent="handleLogin" ref="form">
             <v-text-field
               v-model="formData.username"
@@ -79,6 +91,7 @@ const formData = reactive({
 
 const showPassword = ref(false)
 const loading = ref(false)
+const errorMessage = ref('')
 
 const usernameRules = [
   v => !!v || t('auth.validation.usernameRequired')
@@ -91,6 +104,8 @@ const passwordRules = [
 const handleLogin = async () => {
   if (!formData.username || !formData.password) return
   
+  // 清除之前的錯誤訊息
+  errorMessage.value = ''
   loading.value = true
   
   try {
@@ -98,7 +113,23 @@ const handleLogin = async () => {
     router.push('/dashboard')
   } catch (error) {
     console.error('Login error:', error)
-    // 這裡可以顯示錯誤訊息
+    
+    // 從錯誤回應中提取訊息
+    let errorMsg = '登入失敗，請檢查您的用戶名和密碼'
+    
+    if (error.response) {
+      if (error.response.data?.detail) {
+        errorMsg = error.response.data.detail
+      } else if (error.response.status === 401) {
+        errorMsg = '用戶名或密碼錯誤'
+      } else if (error.response.status === 400) {
+        errorMsg = error.response.data?.detail || '帳號未啟用，請先啟用您的帳號'
+      }
+    } else if (error.message) {
+      errorMsg = `網絡錯誤: ${error.message}`
+    }
+    
+    errorMessage.value = errorMsg
   } finally {
     loading.value = false
   }

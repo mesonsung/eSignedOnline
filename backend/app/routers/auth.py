@@ -21,49 +21,68 @@ security = HTTPBearer()
 @router.post("/register", response_model=dict)
 async def register(user_data: UserCreate):
     """用戶註冊"""
-    db = await get_database()
-    
-    # 檢查用戶名是否已存在
-    existing_user = await db.users.find_one({"username": user_data.username})
-    if existing_user:
+    try:
+        logger.info(f"收到註冊請求，用戶名: {user_data.username}, 郵箱: {user_data.email}")
+        db = await get_database()
+        
+        # 檢查用戶名是否已存在
+        existing_user = await db.users.find_one({"username": user_data.username})
+        if existing_user:
+            logger.warning(f"註冊失敗：用戶名 {user_data.username} 已存在")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="用戶名已存在"
+            )
+        
+        # 檢查郵箱是否已存在
+        existing_email = await db.users.find_one({"email": user_data.email})
+        if existing_email:
+            logger.warning(f"註冊失敗：郵箱 {user_data.email} 已被使用")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="郵箱已被使用"
+            )
+        
+        # 生成啟用碼
+        activation_code = generate_activation_code()
+        
+        # 創建用戶
+        user_doc = {
+            "username": user_data.username,
+            "email": user_data.email,
+            "full_name": user_data.full_name,
+            "role": user_data.role,
+            "password": get_password_hash(user_data.password),
+            "is_active": False,
+            "activation_code": activation_code,
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+        
+        result = await db.users.insert_one(user_doc)
+        logger.info(f"用戶 {user_data.username} 創建成功，ID: {result.inserted_id}")
+        
+        # 發送啟用郵件
+        email_sent = await send_activation_email(user_data.email, activation_code)
+        if email_sent:
+            logger.info(f"啟用郵件已發送到 {user_data.email}")
+        else:
+            logger.warning(f"啟用郵件發送失敗，但用戶已創建。啟用碼: {activation_code}")
+        
+        return {
+            "message": "註冊成功，請檢查您的郵箱以獲取啟用碼",
+            "user_id": str(result.inserted_id)
+        }
+        
+    except HTTPException:
+        # 重新拋出 HTTP 異常
+        raise
+    except Exception as e:
+        logger.error(f"註冊過程中發生錯誤: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="用戶名已存在"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="註冊過程中發生錯誤，請稍後重試"
         )
-    
-    # 檢查郵箱是否已存在
-    existing_email = await db.users.find_one({"email": user_data.email})
-    if existing_email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="郵箱已被使用"
-        )
-    
-    # 生成啟用碼
-    activation_code = generate_activation_code()
-    
-    # 創建用戶
-    user_doc = {
-        "username": user_data.username,
-        "email": user_data.email,
-        "full_name": user_data.full_name,
-        "role": user_data.role,
-        "password": get_password_hash(user_data.password),
-        "is_active": False,
-        "activation_code": activation_code,
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow()
-    }
-    
-    result = await db.users.insert_one(user_doc)
-    
-    # 發送啟用郵件
-    await send_activation_email(user_data.email, activation_code)
-    
-    return {
-        "message": "註冊成功，請檢查您的郵箱以獲取啟用碼",
-        "user_id": str(result.inserted_id)
-    }
 
 @router.post("/activate", response_model=dict)
 async def activate_account(activation_data: dict):
