@@ -89,8 +89,6 @@
                         <v-card variant="outlined" class="signature-card">
                           <canvas
                             ref="signatureCanvas"
-                            width="400"
-                            height="150"
                             class="signature-canvas"
                             @mousedown="startDrawing"
                             @mousemove="draw"
@@ -186,6 +184,10 @@ const formatFileSize = (bytes) => {
 // 行動裝置檢測
 const checkMobile = () => {
   isMobile.value = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  // 重新初始化Canvas以適應新的屏幕尺寸
+  nextTick(() => {
+    initCanvas();
+  });
 };
 
 // 下載文件
@@ -223,7 +225,22 @@ const initCanvas = () => {
   if (signatureCanvas.value) {
     const canvas = signatureCanvas.value;
     const ctx = canvas.getContext("2d");
-
+    
+    // 獲取設備像素比
+    const dpr = window.devicePixelRatio || 1;
+    
+    // 獲取畫布的顯示尺寸
+    const rect = canvas.getBoundingClientRect();
+    const displayWidth = rect.width;
+    const displayHeight = rect.height;
+    
+    // 設置畫布的實際尺寸（考慮設備像素比）
+    canvas.width = displayWidth * dpr;
+    canvas.height = displayHeight * dpr;
+    
+    // 縮放畫布以匹配設備像素比
+    ctx.scale(dpr, dpr);
+    
     // 設置畫布樣式
     ctx.strokeStyle = "#0000FF"; // 純藍色
     ctx.lineWidth = 2;
@@ -231,7 +248,7 @@ const initCanvas = () => {
     ctx.lineJoin = "round";
 
     // 設置透明背景
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, displayWidth, displayHeight);
   }
 };
 
@@ -246,6 +263,7 @@ const startDrawing = (e) => {
   } else if (e.type === "touchstart") {
     e.preventDefault();
     const touch = e.touches[0];
+    // 使用更精確的觸控座標計算
     lastX = touch.clientX - rect.left;
     lastY = touch.clientY - rect.top;
   }
@@ -266,6 +284,7 @@ const draw = (e) => {
   } else if (e.type === "touchmove") {
     e.preventDefault();
     const touch = e.touches[0];
+    // 使用更精確的觸控座標計算
     currentX = touch.clientX - rect.left;
     currentY = touch.clientY - rect.top;
   }
@@ -289,7 +308,8 @@ const clearSignature = () => {
   if (signatureCanvas.value) {
     const canvas = signatureCanvas.value;
     const ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const rect = canvas.getBoundingClientRect();
+    ctx.clearRect(0, 0, rect.width, rect.height);
     hasSignature.value = false;
   }
 };
@@ -358,6 +378,10 @@ onUnmounted(() => {
   background-color: transparent;
   display: block;
   margin: 0 auto;
+  width: 100%;
+  max-width: 600px;
+  height: 200px;
+  touch-action: none; /* 防止觸控滾動干擾 */
 }
 
 .signature-canvas:hover {
@@ -367,9 +391,7 @@ onUnmounted(() => {
 /* 響應式設計 */
 @media (max-width: 600px) {
   .signature-canvas {
-    width: 100%;
-    max-width: 600px;
-    height: 200px;
+    height: 150px;
   }
 }
 

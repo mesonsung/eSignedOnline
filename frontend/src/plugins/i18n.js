@@ -178,8 +178,7 @@ const messages = {
       signaturePreview: "簽名預覽",
       signedDocuments: "已簽署文件",
       deleteConfirm: "確定要刪除此文件嗎？",
-      deleteSignedConfirm:
-        "確定要刪除此已簽署文件嗎？此操作將刪除已簽署文件並恢復文件為可簽署狀態，原始文件將保留。",
+      deleteSignedConfirm: "確定要刪除此已簽署文件嗎？",
       alreadySigned: "此文件已被 {signedBy} 於 {signedAt} 簽署",
       deleteToResign: "如需重新簽署，請先刪除此文件。",
       availableDocuments: "可簽署文件",
@@ -375,10 +374,8 @@ const messages = {
       signaturePreview: "Signature Preview",
       signedDocuments: "Signed Documents",
       deleteConfirm: "Are you sure you want to delete this document?",
-      deleteSignedConfirm:
-        "Are you sure you want to delete this signed document? This will remove the signed file and restore the document to signable status, while preserving the original file.",
-      alreadySigned:
-        "This document has been signed by {signedBy} on {signedAt}",
+      deleteSignedConfirm: "Are you sure you want to delete this signed document?",
+      alreadySigned: "This document has been signed by {signedBy} on {signedAt}",
       deleteToResign: "To sign again, please delete this document first.",
       availableDocuments: "Available Documents",
     },
@@ -573,8 +570,7 @@ const messages = {
       signaturePreview: "Xem trước chữ ký",
       signedDocuments: "Tài liệu đã ký",
       deleteConfirm: "Bạn có chắc chắn muốn xóa tài liệu này không?",
-      deleteSignedConfirm:
-        "Bạn có chắc chắn muốn xóa tài liệu đã ký này không? Thao tác này sẽ xóa tệp đã ký và khôi phục tài liệu về trạng thái có thể ký, đồng thời giữ nguyên tệp gốc.",
+      deleteSignedConfirm: "Bạn có chắc chắn muốn xóa tài liệu này không?",
       alreadySigned: "Tài liệu này đã được {signedBy} ký vào {signedAt}",
       deleteToResign: "Để ký lại, vui lòng xóa tài liệu này trước.",
       availableDocuments: "Tài liệu có thể ký",
