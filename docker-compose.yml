@@ -53,10 +53,23 @@ services:
       - "443:8443"
     volumes:
       - ./storage/frontend/certs:/etc/nginx/certs
+      - ./storage/frontend/letsencrypt:/etc/letsencrypt
     depends_on:
       - backend
     networks:
       - esigned_network
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./storage/frontend/letsencrypt:/etc/letsencrypt
+      - ./storage/frontend/certbot-logs:/var/log/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --deploy-hook \"docker-compose restart frontend\"; sleep 12h; done;'"
+    ports:
+      - "80:80"
+    environment:
+      - CERTBOT_EMAIL=meson.sung@gmail.com
+      - CERTBOT_DOMAIN=esigned.serveblog.net
 
 networks:
   esigned_network:
