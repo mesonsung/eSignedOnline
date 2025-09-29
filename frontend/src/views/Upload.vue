@@ -296,7 +296,10 @@ const handleDrop = (event) => {
   if (droppedFiles.length > 0) {
     const droppedFile = droppedFiles[0]
     if (droppedFile.type === 'application/pdf') {
-      file.value = droppedFile
+      // 將檔案轉為 Blob 以避免檔案變更錯誤
+      const blob = droppedFile.slice(0, droppedFile.size, droppedFile.type)
+      const newFile = new File([blob], droppedFile.name, { type: droppedFile.type })
+      file.value = newFile
     } else {
       window.dispatchEvent(new CustomEvent('show-snackbar', {
         detail: {
@@ -318,7 +321,10 @@ const triggerFileInput = () => {
 const handleFileSelect = (event) => {
   const selectedFile = event.target.files[0]
   if (selectedFile) {
-    file.value = selectedFile
+    // 將檔案轉為 Blob 以避免檔案變更錯誤
+    const blob = selectedFile.slice(0, selectedFile.size, selectedFile.type)
+    const newFile = new File([blob], selectedFile.name, { type: selectedFile.type })
+    file.value = newFile
   }
 }
 
