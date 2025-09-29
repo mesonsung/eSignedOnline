@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     
     # 檔案上傳設定
-    max_file_size: int = 10 * 1024 * 1024  # 10MB
+    max_file_size: int = 50 * 1024 * 1024  # 50MB
     allowed_file_types: list = [".pdf"]
     
     # 檔案路徑

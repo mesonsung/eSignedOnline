@@ -20,6 +20,26 @@
                 class="mb-4"
               ></v-file-input>
               
+              <!-- 文件大小提示 -->
+              <v-alert
+                type="info"
+                variant="tonal"
+                class="mb-4"
+                density="compact"
+              >
+                <template v-slot:prepend>
+                  <v-icon>mdi-information</v-icon>
+                </template>
+                <div class="text-body-2">
+                  <strong>文件上傳限制：</strong>
+                  <ul class="mt-2 mb-0">
+                    <li>僅支援 PDF 格式</li>
+                    <li>文件大小限制：50MB</li>
+                    <li>建議文件大小：10MB 以下以獲得最佳上傳體驗</li>
+                  </ul>
+                </div>
+              </v-alert>
+              
               <v-btn
                 type="submit"
                 color="primary"
@@ -189,11 +209,24 @@ const headers = [
 
 const fileRules = [
   v => !!v || t('document.selectFile') + ' is required',
-  v => !v || v.type === 'application/pdf' || 'Only PDF files are allowed'
+  v => !v || v.type === 'application/pdf' || 'Only PDF files are allowed',
+  v => !v || v.size <= 50 * 1024 * 1024 || 'File size must be less than 50MB'
 ]
 
 const handleUpload = async () => {
   if (!file.value) return
+  
+  // 檢查文件大小
+  if (file.value.size > 50 * 1024 * 1024) {
+    window.dispatchEvent(new CustomEvent('show-snackbar', {
+      detail: {
+        message: '文件大小超過 50MB 限制，請選擇較小的文件',
+        color: 'error',
+        timeout: 5000
+      }
+    }))
+    return
+  }
   
   uploading.value = true
   
@@ -212,8 +245,46 @@ const handleUpload = async () => {
     
     // 重新載入文件列表
     await loadUploadedDocuments()
+    
+    // 顯示成功訊息
+    window.dispatchEvent(new CustomEvent('show-snackbar', {
+      detail: {
+        message: '文件上傳成功！',
+        color: 'success',
+        timeout: 3000
+      }
+    }))
   } catch (error) {
     console.error('Upload error:', error)
+    
+    let errorMessage = '文件上傳失敗'
+    
+    if (error.response) {
+      if (error.response.status === 413) {
+        errorMessage = '文件太大，請選擇小於 50MB 的文件'
+      } else if (error.response.status === 400) {
+        errorMessage = error.response.data?.detail || '文件格式不正確或文件損壞'
+      } else if (error.response.status === 401) {
+        errorMessage = '登入已過期，請重新登入'
+      } else if (error.response.status === 403) {
+        errorMessage = '您沒有權限上傳文件'
+      } else {
+        errorMessage = error.response.data?.detail || `上傳失敗 (${error.response.status})`
+      }
+    } else if (error.code === 'ERR_NETWORK') {
+      errorMessage = '網絡連接失敗，請檢查網絡連接'
+    } else if (error.message) {
+      errorMessage = `上傳錯誤: ${error.message}`
+    }
+    
+    // 顯示錯誤訊息
+    window.dispatchEvent(new CustomEvent('show-snackbar', {
+      detail: {
+        message: errorMessage,
+        color: 'error',
+        timeout: 5000
+      }
+    }))
   } finally {
     uploading.value = false
   }

@@ -138,29 +138,91 @@ html, body {
 /* 響應式字體大小 */
 @media (max-width: 1264px) {
   :root {
-    font-size: 14px;
+    font-size: 15px;
   }
 }
 
 @media (max-width: 960px) {
   :root {
-    font-size: 13px;
+    font-size: 16px;
   }
   
   .themed-card {
     border-radius: var(--border-radius-md);
     margin: var(--spacing-sm);
   }
+  
+  /* 平板設備字體優化 */
+  .v-btn {
+    font-size: 15px !important;
+    min-height: 44px !important;
+  }
+  
+  .v-text-field .v-field__input {
+    font-size: 15px !important;
+    min-height: 44px !important;
+  }
+  
+  .v-list-item-title {
+    font-size: 15px !important;
+  }
+  
+  .v-list-item-subtitle {
+    font-size: 13px !important;
+  }
+  
+  .v-card-title {
+    font-size: 18px !important;
+  }
+  
+  .v-card-text {
+    font-size: 15px !important;
+  }
 }
 
 @media (max-width: 600px) {
   :root {
-    font-size: 12px;
+    font-size: 16px;
   }
   
   .themed-card {
     border-radius: var(--border-radius-sm);
     margin: var(--spacing-xs);
+  }
+  
+  /* 移動設備字體優化 */
+  .v-btn {
+    font-size: 16px !important;
+    min-height: 48px !important;
+  }
+  
+  .v-text-field .v-field__input {
+    font-size: 16px !important;
+    min-height: 48px !important;
+  }
+  
+  .v-list-item-title {
+    font-size: 16px !important;
+  }
+  
+  .v-list-item-subtitle {
+    font-size: 14px !important;
+  }
+  
+  .v-card-title {
+    font-size: 20px !important;
+  }
+  
+  .v-card-text {
+    font-size: 16px !important;
+  }
+  
+  .v-alert {
+    font-size: 16px !important;
+  }
+  
+  .v-chip {
+    font-size: 14px !important;
   }
 }
 

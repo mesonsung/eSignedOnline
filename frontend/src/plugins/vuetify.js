@@ -121,5 +121,14 @@ export default createVuetify({
       border: 'start',
       borderColor: 'primary',
     },
+    VListItem: {
+      minHeight: '48px',
+    },
+    VListItemTitle: {
+      fontSize: '16px',
+    },
+    VListItemSubtitle: {
+      fontSize: '14px',
+    },
   },
 })

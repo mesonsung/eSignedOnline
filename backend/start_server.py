@@ -10,7 +10,10 @@ def start_http_server():
         "app.main:app",
         host="0.0.0.0",
         port=7080,
-        reload=False
+        reload=False,
+        limit_max_requests=1000,
+        timeout_keep_alive=60,
+        timeout_graceful_shutdown=30
     )
 
 def start_https_server():
@@ -25,7 +28,10 @@ def start_https_server():
             port=7443,
             ssl_keyfile=ssl_keyfile,
             ssl_certfile=ssl_certfile,
-            reload=False
+            reload=False,
+            limit_max_requests=1000,
+            timeout_keep_alive=60,
+            timeout_graceful_shutdown=30
         )
 
 if __name__ == "__main__":
