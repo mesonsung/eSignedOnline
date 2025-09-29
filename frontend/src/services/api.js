@@ -2,7 +2,7 @@ import axios from 'axios'
 
 const api = axios.create({
   baseURL: '/api', // 使用相對路徑，通過 Nginx 代理到後端
-  timeout: 10000,
+  timeout: 120000, // 增加超時時間到 2 分鐘，支持大文件上傳
   headers: {
     'Content-Type': 'application/json'
   }
