@@ -5,13 +5,21 @@
 echo "正在啟動 eSignedOnline 系統..."
 
 # 檢查證書是否存在
-if [ ! -f "storage/backend/certs/cert.pem" ] || [ ! -f "storage/backend/certs/key.pem" ]; then
+if [ ! -f "storage/frontend/letsencrypt" ]; then
     echo "證書不存在，正在生成..."
-    ./generate-certs.sh
-fi
+    docker run -it --rm \
+    -v "$(pwd)/storage/frontend/letsencrypt:/etc/letsencrypt" \
+    -p 80:80 \
+    certbot/certbot certonly \
+    --standalone \
+    -d esigned.serveblog.net\
+    --email meson.sung@gmail.com \
+    --agree-tos \
+    --non-interactive
+  fi
 
-if [ ! -f "storage/frontend/certs/cert.pem" ] || [ ! -f "storage/frontend/certs/key.pem" ]; then
-    echo "前端證書不存在，正在生成..."
+if [ ! -f "storage/backend/certs/cert.pem" ] || [ ! -f "storage/backend/certs/key.pem" ]; then
+    echo "後端證書不存在，正在生成..."
     ./generate-certs.sh
 fi
 
@@ -21,10 +29,10 @@ mkdir -p storage/backend/uploads/SignedDoc
 
 # 啟動 Docker Compose
 echo "正在啟動 Docker 容器..."
-docker-compose up -d --build
+docker-compose up -d
 
 echo "系統啟動完成！"
-echo "前端: https://localhost:8443"
+echo "前端: https://localhost"
 echo "後端 API: https://localhost:8443/api/docs"
 echo ""
 echo "預設管理員帳號:"
